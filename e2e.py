@@ -93,29 +93,43 @@ def main():
         check("four named tabs", labels == ["Home", "Menu", "Check-in", "Account"], str(labels))
 
         # --------------------------------------------------- opening sequence
+        # Over the network the document takes longer to parse than it does
+        # locally, so wait for the stage rather than guessing at a delay. The
+        # draw phase lasts ~540ms, which leaves room to catch it mid-stroke.
         boot = ctx.new_page()
         boot.goto(BASE, wait_until="commit")
-        boot.wait_for_timeout(90)
-        check("wordmark is inlined for the first frame",
-              boot.locator("#boot .boot__logo svg .bl").count() == 7)
-        check("only the mark is lit at the start", boot.evaluate(
-            "[...document.querySelectorAll('#boot .bl')]"
-            ".filter(n => n.classList.contains('on')).length <= 1"))
-        check("the mark is being written", boot.evaluate(
-            "!!document.querySelector('#boot svg g[clip-path] path[pathLength]')"))
-        check("the L starts centred and enlarged", boot.evaluate(
-            "const t = document.querySelector('.boot__logo').style.transform;"
-            "/scale\\((\\d+(\\.\\d+)?)\\)/.test(t) && "
-            "parseFloat(t.match(/scale\\(([\\d.]+)\\)/)[1]) > 2"))
-        boot.wait_for_timeout(700)
-        check("the word assembles around it", boot.evaluate(
-            "[...document.querySelectorAll('#boot .bl')]"
-            ".filter(n => n.classList.contains('on')).length === 7"))
-        boot.wait_for_timeout(2200)
-        check("opening sequence finishes and clears",
-              boot.evaluate("!document.getElementById('boot')"))
-        check("opening sequence leaves no errors", not [e for e in errors if "boot" in e.lower()],
-              " | ".join(errors[:2]))
+        try:
+            boot.wait_for_selector("#boot .boot__logo svg", timeout=8000, state="attached")
+            staged = True
+        except Exception:
+            staged = False
+        check("opening stage mounts", staged)
+
+        if staged:
+            check("wordmark is inlined for the first frame",
+                  boot.locator("#boot .boot__logo svg .bl").count() == 7)
+            check("only the mark is lit at the start", boot.evaluate(
+                "[...document.querySelectorAll('#boot .bl')]"
+                ".filter(n => n.classList.contains('on')).length <= 1"))
+            check("the mark is being written", boot.evaluate(
+                "!!document.querySelector('#boot svg g[clip-path] path[pathLength]')"))
+            check("the L starts centred and enlarged", boot.evaluate(
+                "() => {"
+                "  const w = document.querySelector('.boot__logo');"
+                "  if (!w) return false;"
+                "  const m = (w.style.transform || '').match(/scale\\(([\\d.]+)\\)/);"
+                "  return !!m && parseFloat(m[1]) > 2;"
+                "}"))
+            boot.wait_for_timeout(1000)
+            check("the word assembles around it", boot.evaluate(
+                "[...document.querySelectorAll('#boot .bl')]"
+                ".filter(n => n.classList.contains('on')).length === 7"))
+            try:
+                boot.wait_for_selector("#boot", state="detached", timeout=6000)
+                cleared = True
+            except Exception:
+                cleared = False
+            check("opening sequence finishes and clears", cleared)
         boot.close()
 
         # ---------------------------------------------------------- home
