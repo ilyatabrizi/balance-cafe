@@ -131,13 +131,23 @@ export function checkOut() {
   emit("checkin");
 }
 
-/** A forgotten check-in retires itself rather than showing someone as present
- *  the next morning. Called on boot and on every visibility change. */
+/** How long a check-in has left, in milliseconds. */
+export function checkinRemaining(now = Date.now()) {
+  const ci = state.checkin;
+  if (!ci) return 0;
+  return Math.max(0, ci.ts + CHECKIN.expireMinutes * 60000 - now);
+}
+
+/** A forgotten check-in retires itself after its hour rather than leaving
+ *  someone showing as present all evening. Called on boot, on every visibility
+ *  change, and by the check-in screen's own tick. */
 export function expireStaleCheckin() {
   const ci = state.checkin;
   if (!ci) return false;
-  if (Date.now() - ci.ts < CHECKIN.expireHours * 3600e3) return false;
-  state.visits.unshift({ in: ci.ts, out: ci.ts + CHECKIN.expireHours * 3600e3, auto: true });
+  if (checkinRemaining() > 0) return false;
+  state.visits.unshift({
+    in: ci.ts, out: ci.ts + CHECKIN.expireMinutes * 60000, auto: true,
+  });
   state.checkin = null;
   emit("checkin");
   return true;

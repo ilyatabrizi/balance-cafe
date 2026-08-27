@@ -3,7 +3,7 @@
    photography are precached and served cache-first. HTML goes to the network
    first so a redeploy is picked up on the next visit, not the one after. */
 
-const VERSION = "balance-v2";
+const VERSION = "balance-v3";
 const SHELL = `${VERSION}-shell`;
 const MEDIA = `${VERSION}-media`;
 
@@ -23,6 +23,8 @@ const PRECACHE = [
   "./js/motion.js",
   "./js/presence.js",
   "./js/install.js",
+  "./js/boot.js",
+  "./js/markdraw.js",
   "./js/views/home.js",
   "./js/views/menu.js",
   "./js/views/item.js",

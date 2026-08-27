@@ -33,26 +33,39 @@
 <link rel="stylesheet" href="css/app.css">
 
 <style>
-  /* Holds a plain white field until the shell mounts, so the first frame is
-     the brand rather than a flash of unstyled list. */
+  /* The opening sequence: the tilted L writes itself, then the rest of the word
+     assembles around it. Inline so it can start before any stylesheet lands. */
   #boot{
-    position:fixed;inset:0;z-index:300;background:#fff;
-    display:grid;place-items:center;
-    transition:opacity .45s ease,visibility .45s;
+    position:fixed;inset:0;z-index:300;background:#fff;color:#000;
+    display:grid;place-items:center;overflow:hidden;
+    transition:opacity .5s cubic-bezier(.4,0,.2,1),visibility .5s;
   }
-  #boot i{
-    display:block;width:34px;height:34px;border-radius:50%;
-    border:1.5px solid #eee;border-top-color:#000;
-    animation:bootspin .9s linear infinite;
+  .boot__logo{
+    width:min(74vw,300px);will-change:transform;
+    opacity:0;transition:opacity .26s ease;
   }
-  @keyframes bootspin{to{transform:rotate(360deg)}}
-  html.booted #boot{opacity:0;visibility:hidden}
-  @media (prefers-reduced-motion:reduce){ #boot i{animation:none} }
+  .boot__logo.lit{opacity:1}
+  .boot__logo svg{width:100%;height:auto;display:block;overflow:visible}
+  .boot__logo .bl{opacity:0}
+  .boot__logo .bl.on{opacity:1}
+  html.booted #boot{
+    opacity:0!important;visibility:hidden;transform:scale(1.03);
+    transition:opacity .5s cubic-bezier(.4,0,.2,1),visibility .5s,
+               transform .5s cubic-bezier(.4,0,.2,1);
+  }
+  @media (prefers-reduced-motion:reduce){
+    .boot__logo{transform:none!important}
+    .boot__logo .bl{opacity:1;transition:none!important}
+  }
 </style>
 </head>
 <body>
 
-<div id="boot" aria-hidden="true"><i></i></div>
+<!-- The wordmark is inlined by scripts/build_assets.py so the opening frame
+     costs no round trip. Do not hand-edit between the markers. -->
+<div id="boot" aria-hidden="true">
+  <div class="boot__logo"><!--LOGO--><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 68" fill="currentColor" role="img" aria-label="BALANCE" data-mark="2" data-mark-pen="299.4,8.0 342.4,66.2 381.9,38.1" data-mark-weight="10.9"><path class="bl bl-0" fill-rule="evenodd" d="M0.00 0.62L33.12 0.62L41.25 3.75L45.62 7.50L48.75 15.00L48.75 20.62L45.62 27.50L41.25 31.25L44.38 31.88L50.62 37.50L53.12 44.38L51.88 53.75L46.25 61.25L40.62 64.38L32.50 66.25L0.00 65.62ZM10.00 56.25L33.75 56.88L37.50 55.62L41.88 51.25L41.88 42.50L38.75 38.75L33.75 36.88L10.62 36.25ZM10.00 26.88L11.88 28.12L31.25 27.50L36.88 23.75L38.12 21.25L38.12 15.62L36.88 13.12L32.50 10.00L10.00 9.38Z"/><path class="bl bl-1" fill-rule="evenodd" d="M174.38 0.62L179.38 0.62L186.88 15.62L190.62 20.62L194.38 29.38L195.62 30.00L198.12 36.25L199.38 36.88L208.75 56.25L210.00 56.88L213.75 64.38L213.12 66.25L203.75 66.25L195.00 50.00L158.75 50.00L149.38 66.25L139.38 66.25L141.25 60.62L142.50 60.00L150.00 44.38L151.25 43.75L153.75 37.50L155.00 36.88L157.50 30.62L158.75 30.00L161.88 22.50L163.12 21.88L165.62 15.62L166.88 15.00ZM175.00 18.75L166.25 36.25L165.00 36.88L163.75 41.25L190.00 41.25L177.50 16.88L176.25 16.25Z"/><path class="bl bl-2" fill-rule="evenodd" d="M308.75 0.62L310.62 1.88L314.38 8.75L316.25 10.00L321.25 18.75L326.25 24.38L328.75 29.38L330.62 30.62L330.62 31.88L333.75 35.00L344.38 51.25L348.12 50.00L349.38 48.12L360.00 41.88L361.25 40.00L370.00 35.00L375.00 30.62L377.50 30.62L380.00 35.62L381.88 36.88L382.50 40.00L344.38 66.25L340.62 66.88L326.25 45.00L324.38 43.75L323.12 40.62L321.25 39.38L320.00 36.25L318.12 35.00L315.62 30.00L313.75 28.75L311.25 23.75L309.38 22.50L306.88 17.50L299.38 8.12L301.25 5.62L302.50 5.62Z"/><path class="bl bl-3" fill-rule="evenodd" d="M500.62 0.62L506.25 1.25L525.00 37.50L526.25 38.12L530.62 48.12L531.88 48.75L540.00 65.00L539.38 66.25L530.00 66.25L521.25 50.00L485.00 50.00L475.62 66.25L465.62 65.62ZM501.25 18.75L489.38 41.25L516.25 41.25L503.75 16.88L502.50 16.25Z"/><path class="bl bl-4" fill-rule="evenodd" d="M621.25 0.62L628.75 0.62L630.00 1.88L630.00 3.12L643.75 18.12L643.75 19.38L646.88 21.88L649.38 26.25L656.25 33.12L656.25 34.38L663.12 41.25L663.12 42.50L666.25 45.00L667.50 47.50L668.12 1.25L678.12 0.62L677.50 66.25L670.62 66.25L668.75 64.38L666.25 60.00L661.88 56.25L661.88 55.00L658.12 51.88L658.12 50.62L655.00 48.12L655.00 46.88L651.88 44.38L649.38 40.00L645.00 36.25L645.00 35.00L641.88 32.50L641.88 31.25L638.12 28.12L638.12 26.88L631.88 20.00L631.25 65.62L621.25 65.62Z"/><path class="bl bl-5" fill-rule="evenodd" d="M818.12 0.00L828.75 0.00L834.38 1.25L842.50 5.00L848.75 10.00L848.75 11.88L843.12 16.88L841.25 16.88L837.50 13.12L830.62 10.00L816.88 10.00L806.88 15.00L802.50 19.38L798.75 26.25L797.50 31.88L798.75 42.50L802.50 49.38L811.88 56.88L818.12 58.75L827.50 58.75L836.25 55.62L841.25 50.62L848.75 55.00L848.75 57.50L843.12 62.50L835.62 66.25L828.75 68.12L813.12 67.50L800.00 61.25L791.88 51.88L787.50 40.00L788.12 25.62L790.62 18.75L795.00 13.75L795.00 12.50L805.00 4.38Z"/><path class="bl bl-6" fill-rule="evenodd" d="M953.12 0.62L998.12 1.25L998.12 8.75L996.88 10.00L962.50 10.00L963.12 28.12L991.88 28.75L991.25 36.88L962.50 36.88L962.50 56.88L999.38 56.88L999.38 66.25L952.50 65.62Z"/></svg><!--/LOGO--></div>
+</div>
 
 <div id="shell">
   <main id="view"></main>

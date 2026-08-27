@@ -32,8 +32,10 @@ export const ORDER = {
 };
 
 export const CHECKIN = {
-  // A check-in expires on its own so nobody is left showing as present overnight.
-  expireHours: 3,
+  // A check-in lasts an hour, then retires itself. Long enough for a coffee and
+  // a sit; short enough that the room list is never stale. Checking out by hand
+  // still works at any point.
+  expireMinutes: 60,
   // Presence is device-local until an endpoint is set. See README → Check-in.
   // Point this at a REST endpoint and the app switches to shared presence with
   // no other change. Never commit a key here.

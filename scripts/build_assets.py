@@ -210,8 +210,25 @@ def build_og():
     print(f"  og.jpg {(BRAND / 'og.jpg').stat().st_size / 1024:.1f} KB")
 
 
+def inline_logo():
+    """Drop the traced wordmark straight into index.html.
+
+    The opening animation is the first thing anyone sees, so it must not wait on
+    a second request. 3KB in the document beats a round trip.
+    """
+    print("inline")
+    logo = (BRAND / "logo.svg").read_text(encoding="utf-8").strip()
+    page = ROOT / "index.html"
+    html = page.read_text(encoding="utf-8")
+    start, end = "<!--LOGO-->", "<!--/LOGO-->"
+    a, b = html.index(start) + len(start), html.index(end)
+    page.write_text(html[:a] + logo + html[b:], encoding="utf-8")
+    print(f"  index.html  +{len(logo) / 1024:.1f} KB")
+
+
 def main():
     run_tracer()
+    inline_logo()
     build_photos()
     build_icons()
     build_og()

@@ -368,30 +368,85 @@ img.fade.in{opacity:1}
 .fcard__price{margin-top:3px;font-size:12.5px;color:var(--grey-2)}
 
 /* ------------------------------------------------------------- check-in */
+/* Pressing this floods the card with ink from wherever the finger landed, then
+   writes the mark in white — the same stroke the loading screen draws. */
 .ci-toggle{
-  position:relative;width:100%;aspect-ratio:1/.56;border-radius:28px;overflow:hidden;
+  position:relative;width:100%;aspect-ratio:1/.68;border-radius:30px;overflow:hidden;
   background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);
-  display:grid;place-items:center;
-  transition:box-shadow .3s ease;
+  display:grid;place-items:center;isolation:isolate;
   -webkit-tap-highlight-color:transparent;
+  transition:transform .16s cubic-bezier(.2,.9,.3,1),box-shadow .4s ease;
 }
-.ci-toggle__fill{
-  position:absolute;inset:0;background:var(--ink);border-radius:28px;
-  transform:scale(.2);opacity:0;
-  transition:transform .55s cubic-bezier(.2,1,.3,1),opacity .32s ease;
-}
-.ci-toggle[data-on="1"] .ci-toggle__fill{transform:scale(1);opacity:1}
-.ci-toggle__body{position:relative;z-index:1;display:grid;place-items:center;gap:12px;text-align:center;padding:20px}
-.ci-toggle__mark{display:block;width:52px;color:var(--ink);
-  transition:color .35s ease,transform .5s cubic-bezier(.2,1.4,.4,1)}
-.ci-toggle__mark svg{width:100%;height:auto}
-.ci-toggle[data-on="1"] .ci-toggle__mark{color:#fff;transform:scale(1.08)}
-.ci-toggle__text{font-size:11px;font-weight:500;letter-spacing:.3em;text-indent:.3em;
-  text-transform:uppercase;color:var(--grey-1);transition:color .35s ease}
-.ci-toggle[data-on="1"] .ci-toggle__text{color:rgba(255,255,255,.9)}
-.ci-toggle__since{font-size:12.5px;color:var(--grey-2);transition:color .35s ease}
-.ci-toggle[data-on="1"] .ci-toggle__since{color:rgba(255,255,255,.65)}
 .ci-toggle:active{transform:scale(.985)}
+.ci-toggle[data-on="1"]{box-shadow:inset 0 0 0 1px var(--ink)}
+
+.ci-ink{
+  position:absolute;border-radius:50%;background:var(--ink);
+  transform:scale(0);will-change:transform;z-index:0;pointer-events:none;
+}
+
+.ci-body{
+  position:relative;z-index:2;display:grid;place-items:center;gap:14px;
+  text-align:center;padding:18px;
+}
+
+.ci-glyph{position:relative;width:118px;height:118px;display:grid;place-items:center}
+.ci-mark{
+  display:block;width:56px;color:var(--ink);position:relative;z-index:2;
+  transition:color .3s ease;
+}
+.ci-mark svg{width:100%;height:auto;overflow:visible}
+.ci-toggle[data-on="1"] .ci-mark{color:#fff}
+
+/* One ring, pushed outward at the moment the check-in commits. */
+.ci-wave{
+  position:absolute;inset:6px;border-radius:50%;z-index:1;
+  border:1.5px solid rgba(255,255,255,.55);opacity:0;pointer-events:none;
+}
+.ci-wave.go{animation:ciWave .82s cubic-bezier(.16,.72,.3,1) forwards}
+@keyframes ciWave{
+  0%{transform:scale(.55);opacity:.9}
+  100%{transform:scale(2.3);opacity:0}
+}
+
+/* The hour, drawn as a ring that empties. */
+.ci-ring{
+  position:absolute;inset:0;width:100%;height:100%;z-index:1;
+  /* Arrives once the mark has landed, not while it is still being written. */
+  transform:rotate(-90deg);opacity:0;transition:opacity .5s ease .78s;
+}
+.ci-toggle[data-on="1"] .ci-ring{opacity:1}
+.ci-ring__track{stroke:rgba(255,255,255,.16)}
+.ci-ring__fill{
+  stroke:rgba(255,255,255,.82);
+  transition:stroke-dashoffset 1s linear;
+}
+
+.ci-text{
+  font-size:11px;font-weight:500;letter-spacing:.3em;text-indent:.3em;
+  text-transform:uppercase;color:var(--grey-1);transition:color .3s ease;
+}
+.ci-toggle[data-on="1"] .ci-text{color:#fff}
+.ci-sub{font-size:12.5px;color:var(--grey-2);transition:color .3s ease}
+.ci-toggle[data-on="1"] .ci-sub{color:rgba(255,255,255,.62)}
+
+/* The words step aside while the ink lands, then come back up. */
+.ci-text,.ci-sub{will-change:transform,opacity}
+.ci-body[data-settling="1"] .ci-text,
+.ci-body[data-settling="1"] .ci-sub{opacity:0;transform:translateY(6px)}
+.ci-body[data-settling="0"] .ci-text,
+.ci-body[data-settling="0"] .ci-sub{
+  opacity:1;transform:none;
+  transition:opacity .42s ease,transform .42s cubic-bezier(.22,1,.32,1);
+}
+.ci-body[data-settling="0"] .ci-sub{transition-delay:.07s}
+
+@media (prefers-reduced-motion:reduce){
+  .ci-ink{transition:none}
+  .ci-wave.go{animation:none}
+  .ci-body[data-settling="1"] .ci-text,
+  .ci-body[data-settling="1"] .ci-sub{opacity:1;transform:none}
+}
 
 .avatar{
   width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;

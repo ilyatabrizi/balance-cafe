@@ -1,6 +1,8 @@
 // Boot, chrome, and wiring. The shell owns three fixed pieces: the translucent
 // app bar, the floating glass tab bar, and the order dock that rises above it.
 
+// First import: the opening animation starts before anything else is wired.
+import { appIsReady } from "./boot.js";
 import { el, clear, haptic, money, plural, debounce } from "./util.js";
 import { icon } from "./icons.js";
 import { BUSINESS } from "./config.js";
@@ -200,8 +202,11 @@ async function boot() {
     if (i >= 0) movePill(i, { animate: false });
   }, 120));
 
-  // A check-in left running overnight retires itself rather than lying.
+  // The hour has to run down whichever screen is open, not only this one.
   store.expireStaleCheckin();
+  setInterval(() => {
+    if (store.expireStaleCheckin()) paintRoomDot();
+  }, 60000);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible") return;
     store.expireStaleCheckin();
@@ -226,7 +231,7 @@ async function boot() {
   document.fonts?.ready.then(settle);
 
   presence.list().then(paintRoomDot);
-  document.documentElement.classList.add("booted");
+  appIsReady();
 }
 
 /* ------------------------------------------------------- service worker */
@@ -239,7 +244,7 @@ if ("serviceWorker" in navigator) {
 
 boot().catch((e) => {
   console.error(e);
-  document.documentElement.classList.add("booted");
+  appIsReady();
   view.append(el("div.empty",
     el("p.body", "Something went wrong loading the app. Please reload.")));
 });

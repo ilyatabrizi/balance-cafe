@@ -78,12 +78,45 @@ def main():
 
         check("boot overlay clears", page.evaluate(
             "document.documentElement.classList.contains('booted')"))
+        # The opening sequence runs ~1.9s and then takes itself out of the tree.
+        try:
+            page.wait_for_selector("#boot", state="detached", timeout=6000)
+            gone = True
+        except Exception:
+            gone = False
+        check("boot screen is removed from the tree", gone)
         check("shell mounted", page.locator("#shell").count() == 1)
         check("tab bar present", page.locator(".tabbar .tab").count() == 4)
         check("app bar present", page.locator(".appbar").count() == 1)
 
         labels = page.eval_on_selector_all(".tab__label", "ns => ns.map(n => n.textContent)")
         check("four named tabs", labels == ["Home", "Menu", "Check-in", "Account"], str(labels))
+
+        # --------------------------------------------------- opening sequence
+        boot = ctx.new_page()
+        boot.goto(BASE, wait_until="commit")
+        boot.wait_for_timeout(90)
+        check("wordmark is inlined for the first frame",
+              boot.locator("#boot .boot__logo svg .bl").count() == 7)
+        check("only the mark is lit at the start", boot.evaluate(
+            "[...document.querySelectorAll('#boot .bl')]"
+            ".filter(n => n.classList.contains('on')).length <= 1"))
+        check("the mark is being written", boot.evaluate(
+            "!!document.querySelector('#boot svg g[clip-path] path[pathLength]')"))
+        check("the L starts centred and enlarged", boot.evaluate(
+            "const t = document.querySelector('.boot__logo').style.transform;"
+            "/scale\\((\\d+(\\.\\d+)?)\\)/.test(t) && "
+            "parseFloat(t.match(/scale\\(([\\d.]+)\\)/)[1]) > 2"))
+        boot.wait_for_timeout(700)
+        check("the word assembles around it", boot.evaluate(
+            "[...document.querySelectorAll('#boot .bl')]"
+            ".filter(n => n.classList.contains('on')).length === 7"))
+        boot.wait_for_timeout(2200)
+        check("opening sequence finishes and clears",
+              boot.evaluate("!document.getElementById('boot')"))
+        check("opening sequence leaves no errors", not [e for e in errors if "boot" in e.lower()],
+              " | ".join(errors[:2]))
+        boot.close()
 
         # ---------------------------------------------------------- home
         check("hero renders", page.locator(".hero__img").count() == 1)
@@ -210,12 +243,18 @@ def main():
         check("toggle present", page.locator(".ci-toggle").count() == 1)
         check("toggle starts off", page.get_attribute(".ci-toggle", "data-on") == "0")
         check("mark used as the toggle glyph",
-              page.evaluate("!!document.querySelector('.ci-toggle__mark svg path')"))
+              page.evaluate("!!document.querySelector('.ci-mark svg path')"))
+        check("ink flood layer present", page.locator(".ci-ink").count() == 1)
+        check("countdown ring present", page.locator(".ci-ring__fill").count() == 1)
+        check("ring is empty while checked out",
+              page.evaluate("getComputedStyle(document.querySelector('.ci-ring')).opacity") == "0")
         before = page.locator(".person").count()
         shot(page, "06-checkin-off")
 
         page.locator(".ci-toggle").click()
-        settle(page, 800)
+        # The flourish runs ~1.3s end to end: ink, then the written mark, then
+        # the ring. Let it finish before asserting the settled state.
+        settle(page, 1600)
         check("toggle turns on", page.get_attribute(".ci-toggle", "data-on") == "1")
         check("you appear in the room", page.locator(".person .avatar--me").count() == 1)
         check("room count grows", page.locator(".person").count() == before + 1,
@@ -226,6 +265,23 @@ def main():
               page.locator(".btn", has_text="Check out").count() == 1)
         check("check-in persisted", page.evaluate(
             "!!JSON.parse(localStorage.getItem('balance.v1.state')).checkin"))
+
+        # the flourish: ink lands, the mark ends up written, the ring fills
+        check("ink floods the card", page.evaluate(
+            "parseFloat(getComputedStyle(document.querySelector('.ci-ink'))"
+            ".transform.split(',')[0].replace('matrix(','')) > 0.98"))
+        check("mark hands back to its filled path", page.evaluate(
+            "const m=document.querySelector('.ci-mark path');"
+            "!!m && m.style.opacity !== '0' && !document.querySelector('.ci-mark g[clip-path]')"))
+        check("countdown ring shows the hour", page.evaluate(
+            "getComputedStyle(document.querySelector('.ci-ring')).opacity === '1'"))
+        ring_off = page.evaluate(
+            "parseFloat(document.querySelector('.ci-ring__fill')"
+            ".getAttribute('stroke-dashoffset'))")
+        check("ring starts effectively full", ring_off < 6, f"offset {ring_off}")
+        check("minutes remaining shown", bool(re.search(
+            r"\b(59|60) min left", page.locator(".ci-sub").inner_text())),
+            page.locator(".ci-sub").inner_text())
         shot(page, "07-checkin-on")
 
         page.locator(".chip", has_text="Working").first.click()
@@ -240,11 +296,39 @@ def main():
         page.locator(".switch").click()
         settle(page, 400)
 
-        page.locator(".btn", has_text="Check out").click()
-        settle(page, 700)
+        page.locator(".btn", has_text="Check out now").click()
+        settle(page, 900)
         check("check-out clears you", page.get_attribute(".ci-toggle", "data-on") == "0")
         check("visit recorded", page.evaluate(
             "JSON.parse(localStorage.getItem('balance.v1.state')).visits.length >= 1"))
+        check("ink recedes on check-out", page.evaluate(
+            "parseFloat(getComputedStyle(document.querySelector('.ci-ink'))"
+            ".transform.split(',')[0].replace('matrix(','')) < 0.05"))
+
+        # --- the hour runs out on its own -------------------------------
+        page.locator(".ci-toggle").click()
+        settle(page, 1200)
+        page.evaluate("""() => {
+          const k = 'balance.v1.state';
+          const s = JSON.parse(localStorage.getItem(k));
+          s.checkin.ts = Date.now() - 61 * 60000;   // an hour and a minute ago
+          localStorage.setItem(k, JSON.stringify(s));
+        }""")
+        page.reload(wait_until="networkidle")
+        settle(page, 1500)
+        after = page.evaluate("JSON.parse(localStorage.getItem('balance.v1.state'))")
+        check("an expired check-in clears itself", after["checkin"] is None)
+        check("expiry is logged as an automatic visit",
+              any(v.get("auto") for v in after["visits"]))
+        check("expiry lasts exactly the configured hour",
+              any(abs((v["out"] - v["in"]) - 3600000) < 2000
+                  for v in after["visits"] if v.get("auto")),
+              str([v["out"] - v["in"] for v in after["visits"] if v.get("auto")]))
+        goto(page, "/checkin")
+        check("toggle reads as off after expiry",
+              page.get_attribute(".ci-toggle", "data-on") == "0")
+        check("an hour is the stated rule",
+              "after an hour" in page.locator("#view").inner_text())
 
         # -------------------------------------------------------------- bag
         page.locator(".gbtn[aria-label*='order']").click()

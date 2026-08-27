@@ -26,6 +26,7 @@ WORK_W = 1600      # trace width; the art is thin strokes, so resolution matters
 LUMA_CUT = 140     # below this = ink
 EPSILON = 1.1      # Douglas-Peucker tolerance, in working pixels
 MIN_AREA = 60      # drop scanner speckle
+MARK_INDEX = 2     # the tilted L — third letter, and the whole identity
 
 
 def load_mask(path, width):
@@ -168,12 +169,54 @@ def to_path(rings, scale, ox, oy, precision=2):
     return "".join(out)
 
 
-def svg(paths_d, vw, vh, title):
+def svg(paths_d, vw, vh, title, extra=""):
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {vw:.0f} {vh:.0f}" '
-        f'fill="currentColor" role="img" aria-label="{title}">'
-        f'<path fill-rule="evenodd" d="{paths_d}"/></svg>\n'
+        f'fill="currentColor" role="img" aria-label="{title}"{extra}>'
+        f'<path class="bl bl-0" fill-rule="evenodd" d="{paths_d}"/></svg>\n'
     )
+
+
+def svg_letters(letters, vw, vh, title, extra=""):
+    """One path per letter, so each can be animated on its own."""
+    body = "".join(
+        f'<path class="bl bl-{i}" fill-rule="evenodd" d="{d}"/>'
+        for i, d in enumerate(letters))
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {vw:.0f} {vh:.0f}" '
+        f'fill="currentColor" role="img" aria-label="{title}"{extra}>'
+        f'{body}</svg>\n'
+    )
+
+
+def centreline(cells):
+    """The three points a pen would travel to write the tilted L.
+
+    It is a check mark: down-right to a vertex, then up-right. The extremes of
+    the blob give those points directly, and averaging the column or row at each
+    extreme keeps the endpoint on the stroke's axis rather than at a corner.
+    """
+    xs = [x for x, _ in cells]
+    ys = [y for _, y in cells]
+    minx, maxx, maxy = min(xs), max(xs), max(ys)
+
+    def mean(vals):
+        return sum(vals) / len(vals)
+
+    # Sample a thin band at each extreme so a single stray pixel cannot skew it.
+    band = max(2, round((maxx - minx) * 0.03))
+    left_y = mean([y for x, y in cells if x <= minx + band])
+    right_y = mean([y for x, y in cells if x >= maxx - band])
+    vertex_x = mean([x for x, y in cells if y >= maxy - band])
+    return [(minx, left_y), (vertex_x, maxy), (maxx, right_y)]
+
+
+def stroke_weight(cells, line):
+    """Ink area divided by centreline length — the letter's stroke thickness."""
+    length = sum(((line[i + 1][0] - line[i][0]) ** 2
+                  + (line[i + 1][1] - line[i][1]) ** 2) ** 0.5
+                 for i in range(len(line) - 1))
+    return len(cells) / length if length else 1.0
 
 
 def bounds(blobs):
@@ -195,25 +238,40 @@ def main():
     ox, oy, mx, my = bounds(blobs)
     lw, lh = mx - ox + 1, my - oy + 1
     scale = 1000 / lw
-    rings = [rdp(r, EPSILON) for b in blobs for r in trace_outline(b)]
+
+    letters = [to_path([rdp(r, EPSILON) for r in trace_outline(b)], scale, ox, oy)
+               for b in blobs]
+
+    # The boot screen draws the L before the word exists around it, so the
+    # wordmark carries the pen stroke for that letter as data.
+    line = centreline(blobs[MARK_INDEX])
+    weight = stroke_weight(blobs[MARK_INDEX], line)
+    pen = " ".join(f"{(x - ox) * scale:.1f},{(y - oy) * scale:.1f}" for x, y in line)
+    extra = (f' data-mark="{MARK_INDEX}" data-mark-pen="{pen}"'
+             f' data-mark-weight="{weight * scale:.1f}"')
+
     (OUT / "logo.svg").write_text(
-        svg(to_path(rings, scale, ox, oy), 1000, lh * scale, "BALANCE"),
-        encoding="utf-8")
+        svg_letters(letters, 1000, lh * scale, "BALANCE", extra), encoding="utf-8")
 
     # --- the mark: the tilted L, third letter in ---------------------------
-    mark = [blobs[2]]
+    mark = [blobs[MARK_INDEX]]
     mox, moy, mmx, mmy = bounds(mark)
     mw, mh = mmx - mox + 1, mmy - moy + 1
     ms = 1000 / mw
     mrings = [rdp(r, EPSILON) for b in mark for r in trace_outline(b)]
+    mline = centreline(blobs[MARK_INDEX])
+    mweight = stroke_weight(blobs[MARK_INDEX], mline)
+    mpen = " ".join(f"{(x - mox) * ms:.1f},{(y - moy) * ms:.1f}" for x, y in mline)
     (OUT / "mark.svg").write_text(
-        svg(to_path(mrings, ms, mox, moy), 1000, mh * ms, "Balance"),
+        svg(to_path(mrings, ms, mox, moy), 1000, mh * ms, "Balance",
+            f' data-mark-pen="{mpen}" data-mark-weight="{mweight * ms:.1f}"'),
         encoding="utf-8")
 
     for f in ("logo.svg", "mark.svg"):
         p = OUT / f
         print(f"  {f}: {p.stat().st_size / 1024:.1f} KB")
     print(f"  wordmark aspect {lw / lh:.2f}:1   mark aspect {mw / mh:.2f}:1")
+    print(f"  pen {pen}  weight {weight * scale:.1f}")
 
 
 if __name__ == "__main__":

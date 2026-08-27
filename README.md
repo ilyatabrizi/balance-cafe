@@ -15,7 +15,7 @@ and no loyalty scheme anywhere in it.
 | --- | --- |
 | **Home** | See the room, whether it is open, how many people are in, this week's drinks, hours, directions, Instagram |
 | **Menu** | Six sections, 31 items, sticky section rail. Tap anything to open its order sheet — size, milk, strength, a note for the bar, quantity |
-| **Check-in** | One toggle. Press it on arrival and you appear in the room; everyone else using the app sees who is in and what they are here for |
+| **Check-in** | One toggle. Press it on arrival and you appear in the room; everyone else using the app sees who is in and what they are here for. It lasts an hour, counted down by the ring around the mark, then retires itself — checking out by hand still works at any moment |
 | **Account** | Name and phone, order history, visit history, usual milk, anonymous check-in, install prompt, clear-this-device |
 | **Bag** *(top-right, not a tab)* | Edit the order, dine-in with a table or pick-up with a time slot, then send it to the bar |
 | **Order** | The order code to say at the cashier, blown up full screen on request, plus re-order |
@@ -31,8 +31,18 @@ nothing on a server.
   than merchandise. That treatment is baked into the exported files by
   `scripts/build_assets.py`, not applied by CSS filters.
 - **The wordmark is traced vector**, walked out of the client's PNG by
-  `scripts/trace_logo.py`. The tilted L is pulled out on its own as `mark.svg`
-  and reused as the app icon, the check-in glyph, and the empty-state mark.
+  `scripts/trace_logo.py` as seven separate letter paths. The tilted L is pulled
+  out on its own as `mark.svg` and reused as the app icon, the check-in glyph,
+  and the empty-state mark.
+- **The mark writes itself.** The tracer also measures the centreline a pen
+  would travel along that letter and its stroke weight. `js/markdraw.js` clips a
+  deliberately over-thick line to the real letterform and sweeps it — so the
+  letter is drawn, not faded, and at 100% it is pixel-identical to the filled
+  path. The opening screen and the check-in toggle share that one stroke.
+- **The opening sequence:** the L writes itself alone and large, then settles
+  into its place in the word while the other six letters arrive from behind it
+  and travel outward. The wordmark is inlined into `index.html` at build time so
+  the first frame costs no round trip.
 - **Type:** Satoshi for the interface, Fraunces (variable, optical sizing) for
   display and dish names — an echo of the serif on their Instagram cards. The
   wide-tracked uppercase label is the logo's own voice used as a system element.
@@ -71,7 +81,7 @@ scripts/
   build_assets.py       photos, icons, share card
   src-*.jpg             the client's original files
   shots/                e2e screenshots
-e2e.py                  129 checks against a real browser
+e2e.py                  151 checks against a real browser
 serve.py                local preview
 ```
 
@@ -129,9 +139,9 @@ python3 e2e.py                                            # local
 python3 e2e.py https://ilyatabrizi.github.io/balance-cafe/   # deployed
 ```
 
-129 checks: boot, every route, the order sheet's pricing maths, bag validation,
-the whole checkout, check-in on/off/tag/anonymous/visit, PWA manifest and every
-icon, service-worker registration, no-Persian-text, alt text, tap-target sizes,
+151 checks: the opening sequence, every route, the order sheet's pricing maths, bag validation,
+the whole checkout, check-in on/off/tag/anonymous/visit and the one-hour
+auto-expiry, PWA manifest and every icon, service-worker registration, no-Persian-text, alt text, tap-target sizes,
 corrupt-localStorage recovery, 320px and desktop layouts, console errors.
 Screenshots land in `scripts/shots/`.
 
